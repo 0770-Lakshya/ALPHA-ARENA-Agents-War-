@@ -3,8 +3,8 @@ Compare every strategy you tried:   python compare.py
 
 Runs every  decide_*  function in strategy.py (and the equal-weight benchmark).
 The training data is split in two:
-  * "fit"        - the first 80%: build and tune your ideas here
-  * "validation" - the last 20%: the honest check, like a mini secret period
+  * "fit"        - the first 10 years: build and tune your ideas ONLY here
+  * "validation" - all the years after that: the honest check, like a mini secret period
 The table shows validation numbers, plus how much the Sharpe ratio dropped
 from fit to validation (that is what "Generalization" is scored on).
 
@@ -19,7 +19,7 @@ import engine
 import strategy
 
 HERE = Path(__file__).resolve().parent
-VALIDATION_SHARE = 0.2
+FIT_DAYS = 10 * 252    # 10 years of trading days
 SHOW = ["total_return_%", "sharpe", "sortino", "calmar", "max_drawdown_%", "trading_accuracy_%",
         "costs_paid_%", "avg_exposure_%", "fit_sharpe", "generalization"]
 
@@ -27,7 +27,7 @@ SHOW = ["total_return_%", "sharpe", "sortino", "calmar", "max_drawdown_%", "trad
 def main():
     data = engine.load(HERE / "data" / "train.csv")
     days = data["close"].index
-    split = days[int(len(days) * (1 - VALIDATION_SHARE))]
+    split = days[min(FIT_DAYS, len(days) - 1)]
 
     candidates = {n: f for n, f in vars(strategy).items() if n.startswith("decide_") and callable(f)}
     if strategy.decide not in candidates.values():

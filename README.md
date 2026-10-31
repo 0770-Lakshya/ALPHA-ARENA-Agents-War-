@@ -1,6 +1,6 @@
 # Agents War — Alpha Arena (Meraz 7.0)
 
-You get 10 years of daily prices for 12 Indian stocks. Build a trading agent that decides,
+You get 15 years of daily prices for 12 Indian stocks. Build a trading agent that decides,
 every day, how to split your Rs 10 lakh (virtual) between those stocks. After the event we let
 your agent trade a **secret market period it has never seen**, right after the training data ends.
 We don't reveal which years the data or the secret period come from, so your agent has to cope
@@ -19,7 +19,10 @@ test them honestly, understand why they work because you also have to present yo
 | `starter.ipynb` | The same steps as a notebook (works in Google Colab / Jupyter). |
 | `engine.py` | The simulator. Don't edit it; we score you with the same file. |
 
-Setup: `pip install pandas numpy matplotlib scikit-learn` (or use Google Colab, which already has everything).
+Setup, either way works:
+* **Google Colab (nothing to install):** File → Open notebook → GitHub tab → paste this repo's link → open `starter.ipynb`,
+  then run the cells. The first cell downloads the rest of the kit.
+* **Laptop:** `git clone <this repo>` (or Code → Download ZIP), then `pip install pandas numpy matplotlib scikit-learn`.
 
 ## The function you write
 ```python
@@ -36,8 +39,8 @@ decide = decide_my_idea              # the one we run on the secret period
 
 ## How to work
 1. Write 3 or more different ideas as `decide_xxx` functions.
-2. `python compare.py` splits the training data into **fit** (first 80%) and **validation** (last 20%).
-   Tune on fit; treat validation as your mini secret period.
+2. `python compare.py` splits the data into **fit** (the first 10 years) and **validation** (all the years after).
+   Build and tune **only on the first 10 years**; treat the rest as your mini secret period and don't tune on it.
 3. Pick your final agent: `decide = decide_xxx`. Be wary of an agent that is great on fit but weak on validation.
 
 ## Rules
