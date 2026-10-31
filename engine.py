@@ -2,8 +2,11 @@
 AGENTS WAR - backtest engine.  DO NOT EDIT (organizers use the same file to score you).
 
 How it works, in plain words:
-  * Every day, after the market closes, the engine calls your  decide(history).
-  * `history` only contains data up to and including today - you can never see the future.
+  * First the engine calls your  train(data)  ONCE, with only the days in your TRAIN_WINDOW
+    (at most 10 years = 2520 days). Learn whatever you need there.
+  * Then, every day after the market closes, it calls your  decide(history).
+  * `history` holds only the last year (252 days) up to and including today -
+    you can never see the future, and you cannot re-learn from the full data inside decide.
   * You return how much of your money to put in each stock (a "weight").
   * Your portfolio earns those stocks' returns from today's close to tomorrow's close.
   * Every change in weights pays a trading cost.
@@ -13,11 +16,13 @@ import math
 import numpy as np
 import pandas as pd
 
-STARTING_CAPITAL = 1_000_000   # Rs 10 lakh (virtual)
+STARTING_CAPITAL = 100000     # Rs 1 lakh (virtual)
 COST_PER_TRADE = 0.001         # 0.1% of the amount bought or sold
 ALLOW_SHORT = True             # negative weights allowed?
 MAX_GROSS = 1.0                # sum of |weights| may not exceed 1 (no leverage)
 FIELDS = ["open", "high", "low", "close", "volume"]
+LOOKBACK_DAYS = 252            # decide() sees at most the last year of prices
+MAX_TRAIN_DAYS = 2520          # train() may learn from at most 10 years
 
 
 def load(path):
@@ -38,6 +43,22 @@ def clean_weights(raw, stocks):
     return w
 
 
+def train_agent(module, data, window=None):
+    """Check the agent's TRAIN_WINDOW (or the given window) and call its train() with only those days."""
+    start, end = window or getattr(module, "TRAIN_WINDOW", (None, None))
+    if start is None or end is None:
+        raise ValueError("strategy.py must set TRAIN_WINDOW = (first_day, last_day)")
+    days = data["close"].index
+    if not (days[0] <= start <= end <= days[-1]):
+        raise ValueError(f"TRAIN_WINDOW must be inside days {days[0]}..{days[-1]}, got ({start}, {end})")
+    n = int(((days >= start) & (days <= end)).sum())
+    if n > MAX_TRAIN_DAYS:
+        raise ValueError(f"TRAIN_WINDOW covers {n} days; the limit is {MAX_TRAIN_DAYS} (10 years)")
+    if hasattr(module, "train"):
+        module.train({f: df.loc[start:end].copy() for f, df in data.items()})
+    return start, end
+
+
 def backtest(decide, data, start_day=50, on_error="raise", verbose=True):
     """
     Run `decide` day by day from `start_day` to the end of `data`.
@@ -54,7 +75,8 @@ def backtest(decide, data, start_day=50, on_error="raise", verbose=True):
     w_prev = np.zeros(len(stocks))
     log, weights = [], []
     for i in range(start, len(days) - 1):
-        history = {f: data[f].iloc[: i + 1] for f in FIELDS}
+        lo = max(0, i + 1 - LOOKBACK_DAYS)
+        history = {f: data[f].iloc[lo: i + 1] for f in FIELDS}
         error = 0
         try:
             w = clean_weights(decide(history), stocks)
@@ -117,17 +139,6 @@ def print_metrics(m):
     for k, v in m.items():
         print(f"{k:>22}: {v:10.2f}")
     print("-" * 40)
-
-
-def plot(result, title="My strategy", benchmark=None):
-    import matplotlib.pyplot as plt
-    ax = result["equity"].plot(figsize=(10, 4), label="strategy", title=title)
-    if benchmark is not None:
-        benchmark["equity"].plot(ax=ax, label="equal-weight buy & hold", alpha=0.7)
-    ax.set_xlabel("day")
-    ax.set_ylabel("portfolio value (Rs)")
-    ax.legend()
-    plt.show()
 
 
 def equal_weight(history):
